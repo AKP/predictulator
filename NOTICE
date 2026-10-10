@@ -1,0 +1,19 @@
+Predictulator
+Copyright 2026 Predictulator contributors
+
+This product builds on, and contains no modified copies of, two works by
+Anatoly Yakovenko licensed under the Apache License, Version 2.0:
+
+  percolator       https://github.com/aeyakovenko/percolator
+                   the v16 account-local risk engine (Rust crate)
+  percolator-prog  https://github.com/aeyakovenko/percolator-prog
+                   the Solana program that wraps the engine
+
+Predictulator is a client-side system: TypeScript layouts, instruction
+encoders, and services that talk to an unmodified deployment of
+percolator-prog. Account layouts and instruction formats in packages/sdk
+were transcribed from the source of those projects at the commits recorded
+in packages/sdk/src/constants.ts.
+
+Predictulator is not affiliated with or endorsed by Anatoly Yakovenko,
+Solana Labs, the Solana Foundation, or Fivebar.
