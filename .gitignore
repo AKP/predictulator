@@ -1,0 +1,17 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+apps/web/dist/
+keys/
+*.keypair.json
+
+.vercel
+scripts/promo/frames/
+scripts/promo/events.json
+scripts/promo/sfx.wav
+scripts/.cache/
