@@ -1,0 +1,37 @@
+{
+  "name": "predictulator",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Prediction markets on Solana, built on the Percolator risk engine. Every question is a perpetual asset with realizable-credit containment.",
+  "license": "Apache-2.0",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "tsc -b tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "dev:web": "npm run dev -w @predictulator/web",
+    "dev:site": "npm run dev -w @predictulator/site",
+    "build:site": "npm run build -w @predictulator/site",
+    "resolver": "npm run start -w @predictulator/resolver --",
+    "keeper": "npm run start -w @predictulator/keeper --",
+    "maker": "npm run start -w @predictulator/maker --",
+    "ops": "npm run start -w @predictulator/ops --",
+    "typecheck:web": "tsc -p apps/web/tsconfig.json",
+    "verify:layouts": "node scripts/verify-layouts.mjs",
+    "mcp": "npm run start -w @predictulator/mcp --",
+    "indexer": "npm run start -w @predictulator/indexer --",
+    "mithril": "npm run start -w @predictulator/mithril --"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
