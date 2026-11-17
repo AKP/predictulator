@@ -1,0 +1,29 @@
+{
+  "files": [],
+  "references": [
+    {
+      "path": "packages/sdk"
+    },
+    {
+      "path": "packages/resolver"
+    },
+    {
+      "path": "packages/keeper"
+    },
+    {
+      "path": "packages/maker"
+    },
+    {
+      "path": "packages/ops"
+    },
+    {
+      "path": "packages/mcp"
+    },
+    {
+      "path": "packages/indexer"
+    },
+    {
+      "path": "packages/mithril"
+    }
+  ]
+}
