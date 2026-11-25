@@ -1,0 +1,20 @@
+{
+  "name": "@predictulator/keeper",
+  "version": "0.2.0",
+  "description": "Predictulator keeper: permissionless cranks, maintenance fee sync, and force-close of resolved questions.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "predictulator-keeper": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node ./dist/cli.js"
+  },
+  "dependencies": {
+    "@predictulator/sdk": "0.2.0",
+    "@solana/web3.js": "^1.98.0"
+  }
+}

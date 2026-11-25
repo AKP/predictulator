@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Predictulator promo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&family=Silkscreen:wght@700&display=swap">
+<style>
+  html, body { margin: 0; background: #f0f1ee; overflow: hidden; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<canvas id="c" width="1920" height="1080"></canvas>
+<script>
+/**
+ * Predictulator promo. Frame N is a pure function of N; `window.renderFrame(f)`
+ * draws it, `window.soundEvents()` lists every sound cue with its time, and
+ * the capture script turns both into an MP4. 24 fps, ~30 s.
+ */
+const FPS = 24;
+const W = 1920, H = 1080;
+const PAGE = '#f0f1ee', INK = '#0b0b0b', MUTE = '#6f726d';
+const COLS = 160, ROWS = 60;
+const CW = W / COLS, CH = H / ROWS;
+const RAMP = ' .:-=+*#%@';
+const cv = document.getElementById('c');
+const ctx = cv.getContext('2d');
+
+// ---------- helpers
+function mulberry32(a) { return () => { a = (a + 0x6d2b79f5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const ease = (t) => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+
+function grid() { return Array.from({length: ROWS}, () => Array(COLS).fill(' ')); }
+function put(g, x, y, s) { for (let i = 0; i < s.length; i++) { const cx = x + i; if (cx >= 0 && cx < COLS && y >= 0 && y < ROWS) g[y][cx] = s[i]; } }
+function box(g, x, y, w, h) {
+  for (let i = 0; i < w; i++) { g[y][x + i] = '-'; g[y + h - 1][x + i] = '-'; }
+  for (let j = 0; j < h; j++) { g[y + j][x] = '|'; g[y + j][x + w - 1] = '|'; }
+  g[y][x] = '+'; g[y][x + w - 1] = '+'; g[y + h - 1][x] = '+'; g[y + h - 1][x + w - 1] = '+';
+}
+function drawGrid(g, opts = {}) {
+  ctx.font = `500 ${Math.floor(CH * 0.95)}px "Geist Mono", monospace`;
+  ctx.textBaseline = 'top'; ctx.textAlign = 'left';
+  for (let y = 0; y < ROWS; y++) {
+    for (let x = 0; x < COLS; x++) {
+      const ch = g[y][x];
+      if (ch === ' ') continue;
+      ctx.fillStyle = opts.muted && opts.muted(x, y) ? MUTE : INK;
+      ctx.fillText(ch, x * CW, y * CH);
+    }
+  }
+}
+function clear() { ctx.fillStyle = PAGE; ctx.fillRect(0, 0, W, H); }
+function pixelText(s, x, y, px, color = INK, align = 'left') {
+  ctx.font = `700 ${px}px Silkscreen, monospace`; ctx.textBaseline = 'top'; ctx.textAlign = align; ctx.fillStyle = color;
+  ctx.fillText(s.toUpperCase(), x, y); ctx.textAlign = 'left';
+}
+function monoText(s, x, y, px, color = INK, align = 'left') {
+  ctx.font = `500 ${px}px "Geist Mono", monospace`; ctx.textBaseline = 'top'; ctx.textAlign = align; ctx.fillStyle = color;
+  ctx.fillText(s, x, y); ctx.textAlign = 'left';
+}
+function monoWidth(s, px) { ctx.font = `500 ${px}px "Geist Mono", monospace`; return ctx.measureText(s).width; }
+function scanlines(alpha = 0.06) { ctx.fillStyle = `rgba(11,11,11,${alpha})`; for (let y = 0; y < H; y += 4) ctx.fillRect(0, y, W, 1); }
+function cursor(x, y, t, h = 28) { if (Math.floor(t * 2) % 2 === 0) { ctx.fillStyle = INK; ctx.fillRect(x, y, 14, h); } }
+function inverse(x, y, w, h) { ctx.fillStyle = INK; ctx.fillRect(x, y, w, h); }
+
+// ---------- cat as dense ascii, on its own finer grid
+const CAT_COLS = 150, CAT_ROWS = 100;
+let catLum = null, catReady = false;
+const catImg = new Image(); catImg.src = 'cat-poster.jpg';
+catImg.onload = () => {
+  const off = document.createElement('canvas'); off.width = CAT_COLS; off.height = CAT_ROWS;
+  const o = off.getContext('2d'); o.fillStyle = '#fff'; o.fillRect(0, 0, CAT_COLS, CAT_ROWS);
+  const k = CAT_ROWS / catImg.naturalHeight; const dw = catImg.naturalWidth * k;
+  o.drawImage(catImg, (CAT_COLS - dw) / 2, 0, dw, CAT_ROWS);
+  const d = o.getImageData(0, 0, CAT_COLS, CAT_ROWS).data;
+  catLum = new Float32Array(CAT_COLS * CAT_ROWS);
+  for (let i = 0; i < CAT_COLS * CAT_ROWS; i++) catLum[i] = (0.299 * d[i * 4] + 0.587 * d[i * 4 + 1] + 0.114 * d[i * 4 + 2]) / 255;
+  catReady = true;
+};
+function catChar(x, y) {
+  if (!catLum) return ' ';
+  const L = catLum[y * CAT_COLS + x];
+  let s = clamp((0.965 - L) / (0.965 - 0.12), 0, 1);
+  s = Math.pow(s, 0.55); // weight the mid-greys so fur reads as texture, not dust
+  return RAMP[Math.min(RAMP.length - 1, Math.floor(s * RAMP.length))];
+}
+/** Draw the cat into a stage rect; `reveal` 0..1 is a top-down scanning reveal. */
+function drawCat(x0, y0, w, h, reveal, t, flickerSeed) {
+  const cw = w / CAT_COLS, ch = h / CAT_ROWS;
+  ctx.font = `500 ${Math.floor(ch * 1.05)}px "Geist Mono", monospace`; ctx.textBaseline = 'top'; ctx.textAlign = 'left';
+  const r = mulberry32(flickerSeed);
+  const rowsShown = Math.floor(reveal * CAT_ROWS);
+  for (let y = 0; y < CAT_ROWS; y++) {
+    if (y > rowsShown) break;
+    if (y === rowsShown && reveal < 1) { ctx.fillStyle = INK; ctx.fillRect(x0, y0 + y * ch, w, 2); continue; }
+    for (let x = 0; x < CAT_COLS; x++) {
+      let c = catChar(x, y);
+      if (c === ' ') continue;
+      if (r() < 0.02) c = RAMP[Math.max(1, RAMP.indexOf(c) - 1)];
+      ctx.fillStyle = INK;
+      ctx.fillText(c, x0 + x * cw, y0 + y * ch);
+    }
+  }
+}
+
+// ---------- protocol math (same rules as the SDK)
+const rnd = mulberry32(11);
+const PATH = []; { let p = 0.5, drift = 0; for (let i = 0; i < 400; i++) { drift = drift * 0.9 + (rnd() - 0.5) * 0.02; p = clamp(p + drift + (rnd() - 0.5) * 0.012, 0.08, 0.92); PATH.push(p); } }
+function convergence(from, to, capBps) { const out = [from]; let p = from; for (let i = 0; i < 400 && p !== to; i++) { const step = Math.max(1, Math.floor((p * capBps) / 10000)); p = p < to ? Math.min(to, p + step) : Math.max(to, p - step); out.push(p); } return out; }
+const CONV = convergence(620000, 1000000, 300);
+
+// ---------- timeline
+const SCENES = [
+  {name: 'open', dur: 5.0},
+  {name: 'trade', dur: 5.5},
+  {name: 'chart', dur: 6.0},
+  {name: 'contain', dur: 7.0},
+  {name: 'proof', dur: 2.5},
+  {name: 'end', dur: 4.5},
+];
+const TOTAL = SCENES.reduce((a, s) => a + s.dur, 0);
+window.TOTAL_FRAMES = Math.round(TOTAL * FPS);
+const sceneStart = (name) => { let acc = 0; for (const s of SCENES) { if (s.name === name) return acc; acc += s.dur; } return 0; };
+function sceneAt(t) { let acc = 0; for (const s of SCENES) { if (t < acc + s.dur) return {name: s.name, local: t - acc, dur: s.dur}; acc += s.dur; } return {name: 'end', local: 0, dur: 1}; }
+
+// Shared constants so visuals and sound agree.
+const TITLE = 'PREDICTULATOR';
+const TITLE_T0 = 0.9, TITLE_DT = 1.4;                 // open: title types in
+const TRADE_CLICK_YES = 1.0, TRADE_SHARES_T0 = 1.6, TRADE_SHARES_DT = 1.4, TRADE_SIGN = 3.6, TRADE_DONE = 4.3;
+const CHART_DRIFT = 2.0, CHART_DECIDE = 2.4, CHART_CONV_T0 = 2.9, CHART_CONV_RATE = 7; // slots per second
+const CONTAIN_T0 = 1.6, CONTAIN_DT = 2.8, CONTAIN_HEADLINE = CONTAIN_T0 + CONTAIN_DT + 0.25;
+const PROOF_LINES = [['0', 'lines of the engine modified'], ['59', 'unit tests'], ['9,419', 'bytes, matched to the engine’s own assertion']];
+
+// ---------- scenes
+function sOpen(t) {
+  clear();
+  const reveal = clamp(t / 1.5, 0, 1);
+  drawCat(1010, 40, 900, 1000, reveal, t, Math.floor(t * 12));
+  const typed = Math.floor(clamp((t - TITLE_T0) / TITLE_DT, 0, 1) * TITLE.length);
+  pixelText(TITLE.slice(0, typed), 110, 320, 78);
+  if (t > TITLE_T0 && t < TITLE_T0 + TITLE_DT + 0.3) cursor(110 + typed * 70.5, 326, t, 74);
+  if (t > 2.7) { ctx.globalAlpha = clamp((t - 2.7) / 0.4, 0, 1); monoText('Prediction markets on Solana.', 116, 450, 36); ctx.globalAlpha = 1; }
+  if (t > 3.1) { ctx.globalAlpha = clamp((t - 3.1) / 0.4, 0, 1); monoText('A wrong resolution can only hurt', 116, 515, 36); monoText('the people who bet on that question.', 116, 563, 36); ctx.globalAlpha = 1; }
+  if (t > 3.9) { ctx.globalAlpha = clamp((t - 3.9) / 0.4, 0, 1); monoText('built on the Percolator risk engine', 116, 660, 26, MUTE); ctx.globalAlpha = 1; }
+  scanlines();
+}
+
+const Q = {title: 'Will SOL close above $300 on Dec 31, 2026?', criteria: 'YES if the SOL/USD daily close on Coinbase for 2026-12-31 (UTC) is strictly greater than 300.00.', p: 0.62, oi: 18400};
+function sTrade(t) {
+  clear();
+  const g = grid();
+  box(g, 4, 3, COLS - 8, ROWS - 6);
+  put(g, 6, 3, '+-[ predictulator / trading page ]');
+  put(g, COLS - 32, 3, '[ slot 1 / gen 2 / open ]-+');
+  // divider
+  for (let y = 4; y < ROWS - 3; y++) g[y][84] = '|';
+  drawGrid(g, {muted: () => true});
+  // left: question
+  monoText(Q.title, 110, 112, 30);
+  ctx.save(); ctx.font = '500 24px "Geist Mono"'; ctx.fillStyle = MUTE;
+  const words = Q.criteria.split(' '); let line = '', ly = 175;
+  for (const w of words) { const test = line ? line + ' ' + w : w; if (ctx.measureText(test).width > 880) { ctx.fillText(line, 110, ly); ly += 34; line = w; } else line = test; }
+  ctx.fillText(line, 110, ly); ctx.restore();
+  pixelText('62%', 110, 330, 120);
+  monoText('P(YES)', 110, 470, 26, MUTE);
+  monoText(`open interest ${Q.oi.toLocaleString()} YES / ${Q.oi.toLocaleString()} NO`, 110, 520, 26, MUTE);
+  monoText('YES profit realizable 100%   NO profit realizable 100%', 110, 560, 26, MUTE);
+  monoText('bid 61%  /  ask 63%', 110, 600, 26, MUTE);
+  // right: ticket
+  const rx = 1060;
+  monoText('TICKET', rx, 100, 22, MUTE);
+  const yesOn = t >= TRADE_CLICK_YES;
+  // buttons
+  ctx.strokeStyle = INK; ctx.lineWidth = 2;
+  ctx.strokeRect(rx, 140, 380, 70); ctx.strokeRect(rx + 400, 140, 380, 70);
+  if (yesOn) inverse(rx, 140, 380, 70);
+  monoText('YES  63¢', rx + 190, 158, 32, yesOn ? PAGE : INK, 'center');
+  monoText('NO   39¢', rx + 590, 158, 32, INK, 'center');
+  // pointer before the click
+  if (t < TRADE_CLICK_YES) { const px = 1500 - ease(clamp(t / 1.0, 0, 1)) * 300; const py = 420 - ease(clamp(t / 1.0, 0, 1)) * 240; monoText('▲', px, py, 26); }
+  // shares slider
+  const shares = Math.round(clamp((t - TRADE_SHARES_T0) / TRADE_SHARES_DT, 0, 1) * 24) + 1;
+  monoText('SHARES', rx, 250, 22, MUTE);
+  ctx.fillStyle = INK; ctx.fillRect(rx, 300, 680, 2);
+  ctx.fillRect(rx + ((shares - 1) / 99) * 680 - 8, 290, 16, 22);
+  monoText(String(shares), rx + 780, 280, 32, INK, 'right');
+  // numbers (same formulas as the site: notional, fee 20 bps, margin 100%)
+  const ask = 0.63, cost = shares * ask, fee = (shares * ask * 20) / 10000, maxLoss = shares * (ask - 0.000001);
+  const rows = [['shares', String(shares)], ['price', '0.63 per share'], ['cost now', cost.toFixed(2)], ['fee', `${fee.toFixed(4)} (20 bps)`], ['initial margin', `${cost.toFixed(2)} (100%)`], ['pays if right', shares.toFixed(2)], ['max loss', maxLoss.toFixed(2)]];
+  rows.forEach(([k, v], i) => { monoText(k, rx, 360 + i * 42, 26, MUTE); monoText(v, rx + 780, 360 + i * 42, 26, INK, 'right'); });
+  // sign button
+  const signed = t >= TRADE_SIGN;
+  ctx.strokeStyle = INK; ctx.strokeRect(rx, 680, 780, 64);
+  if (signed) inverse(rx, 680, 780, 64);
+  monoText(signed ? 'signed → maker validates → co-signs → sent' : 'Sign and send to maker', rx + 390, 698, 26, signed ? PAGE : INK, 'center');
+  if (t >= TRADE_DONE) { monoText('fill confirmed · sig 8Hd2…cL1 · nothing custodied', rx, 770, 24, MUTE); }
+  monoText('both owners sign a bilateral trade;', 110, 930, 24, MUTE);
+  monoText('the maker co-signs only if price and size match its quote', 110, 964, 24, MUTE);
+  scanlines();
+}
+
+function sChart(t) {
+  clear();
+  const g = grid();
+  const x0 = 12, x1 = 148, y0 = 16, y1 = 50;
+  box(g, x0 - 2, y0 - 2, x1 - x0 + 4, y1 - y0 + 4);
+  const driftN = Math.floor(clamp(t / CHART_DRIFT, 0, 1) * 136);
+  const series = PATH.slice(0, driftN);
+  let conv = -1;
+  if (t >= CHART_CONV_T0) { conv = Math.min(CONV.length - 1, Math.floor((t - CHART_CONV_T0) * CHART_CONV_RATE)); for (let i = 0; i <= conv; i++) series.push(CONV[i] / 1e6); }
+  const head = series.length ? series[series.length - 1] : PATH[0];
+  for (let i = 0; i < series.length && x0 + i < x1; i++) {
+    const yy = Math.round(y1 - series[i] * (y1 - y0));
+    for (let y = yy; y <= y1; y++) g[y][x0 + i] = y === yy ? '#' : (y - yy) % 3 === 0 ? ':' : '.';
+  }
+  if (t >= CHART_DECIDE) for (let x = x0; x < x1; x++) if (x % 2 === 0) g[y0][x] = '-';
+  put(g, x0 - 10, y0, '100%'); put(g, x0 - 10, Math.round((y0 + y1) / 2), ' 50%'); put(g, x0 - 10, y1, '  0%');
+  drawGrid(g, {muted: (x, y) => x < x0 || (y === y0 && t >= CHART_DECIDE)});
+  pixelText(`${Math.round(head * 100)}%`, 1800, 60, 110, INK, 'right');
+  monoText('P(YES)', 1800, 190, 30, MUTE, 'right');
+  monoText('effective price', 120, 80, 30, MUTE);
+  monoText('slot 1 · gen 2', 120, 125, 26, MUTE);
+  let caption, color = INK;
+  if (t < CHART_DRIFT) { caption = 'open · marks follow the maker’s fair probability'; color = MUTE; }
+  else if (t < CHART_CONV_T0) { caption = 'closed · resolver records YES'; }
+  else if (conv < CONV.length - 1) caption = `resolving · PushAuthMark(1_000_000) · converging under the 300 bps cap · slot ${conv}`;
+  else caption = 'converged · UpdateAssetLifecycle(SHUTDOWN) · frozen at 100% · keeper nets longs against shorts';
+  monoText(caption, 120, 960, 30, color);
+  if (t >= CHART_DECIDE && t < CHART_CONV_T0) { inverse(1400, 300, 400, 90); pixelText('YES', 1600, 318, 56, PAGE, 'center'); }
+  scanlines();
+}
+
+function sContain(t) {
+  clear();
+  const g = grid();
+  const qs = [['SOL > $300', 0.62], ['Fed cuts Dec', 0.41], ['100M tx day', 0.73], ['ETH ETF staking', 0.27]];
+  const colW = 34, left = 8, top = 7, barH = 22;
+  const collapse = clamp((t - CONTAIN_T0) / CONTAIN_DT, 0, 1);
+  qs.forEach(([name], i) => {
+    const x = left + i * (colW + 4);
+    box(g, x, top - 3, colW, barH + 8);
+    put(g, x + 2, top - 2, name);
+    const backing = i === 1 ? 1 - collapse : 1;
+    for (let y = 0; y < barH; y++) {
+      const row = top + 2 + (barH - 1 - y);
+      const fillBack = y < Math.round(barH * backing);
+      for (let xx = 0; xx < 12; xx++) g[row][x + 4 + xx] = xx === 0 || xx === 11 ? '|' : '.';
+      for (let xx = 0; xx < 12; xx++) g[row][x + 18 + xx] = fillBack ? '#' : ' ';
+    }
+    put(g, x + 4, top + 2 + barH + 1, 'claims');
+    put(g, x + 18, top + 2 + barH + 1, 'backing');
+    put(g, x + 2, top + 2 + barH + 3, `credit ${String(Math.round(Math.min(1, backing) * 100)).padStart(3)}%`);
+  });
+  drawGrid(g, {muted: (x, y) => y === top - 2 || g[y][x] === '.'});
+  if (t < CONTAIN_T0) monoText('four questions, one vault, one collateral balance per trader', 120, 760, 32, MUTE);
+  if (t >= CONTAIN_T0) monoText(`question 2: NO side liquidated · backing ${Math.round((1 - collapse) * 100)}% of claims → YES profit realizable ${Math.round((1 - collapse) * 100)}%`, 120, 930, 28, INK);
+  if (t >= CONTAIN_HEADLINE) {
+    const a = clamp((t - CONTAIN_HEADLINE) / 0.25, 0, 1); ctx.globalAlpha = a;
+    pixelText('The blast radius', 120, 740, 64); pixelText('is one question', 120, 815, 64);
+    ctx.globalAlpha = 1;
+  }
+  if (t >= CONTAIN_HEADLINE + 0.6) monoText('questions 1, 3, 4: unchanged. vault: unchanged. other users: unchanged.', 120, 975, 28, MUTE);
+  scanlines();
+}
+
+function sProof(t) {
+  clear();
+  PROOF_LINES.forEach(([n, label], i) => {
+    const at = 0.15 + i * 0.55;
+    if (t < at) return;
+    const typed = Math.floor(clamp((t - at) / 0.3, 0, 1) * n.length);
+    pixelText(n.slice(0, typed), 120, 230 + i * 240, 120);
+    if (t > at + 0.3) { ctx.globalAlpha = clamp((t - at - 0.3) / 0.2, 0, 1); monoText(label, 120, 370 + i * 240, 32, MUTE); ctx.globalAlpha = 1; }
+  });
+  monoText('stock percolator-prog on chain · typescript everywhere else · not yet run against a live market', 1800, 1000, 24, MUTE, 'right');
+  scanlines();
+}
+
+function sEnd(t) {
+  clear();
+  const g = grid(); const r = mulberry32(5);
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) if (r() < 0.05) g[y][x] = r() < 0.5 ? '.' : ':';
+  drawGrid(g, {muted: () => true});
+  ctx.globalAlpha = clamp(t / 0.5, 0, 1);
+  pixelText(TITLE, 960, 290, 140, INK, 'center');
+  monoText('prediction markets with a blast radius of one', 960, 470, 40, INK, 'center');
+  ctx.globalAlpha = clamp((t - 0.8) / 0.5, 0, 1);
+  monoText('doranlabs.si', 960, 620, 44, INK, 'center');
+  monoText('github.com/AKP/predictulator  ·  x.com/DoranLabs', 960, 690, 30, MUTE, 'center');
+  ctx.globalAlpha = clamp((t - 1.4) / 0.5, 0, 1);
+  monoText('a Doran Labs project', 960, 780, 30, INK, 'center');
+  monoText('built on Anatoly Yakovenko’s Percolator · devnet only · not audited · test tokens only', 960, 980, 24, MUTE, 'center');
+  ctx.globalAlpha = 1;
+  scanlines();
+}
+
+// Scanline wipe between scenes: the new scene is revealed top-down over 0.28 s.
+const WIPE = 0.28;
+window.renderFrame = function (f) {
+  const t = f / FPS;
+  const s = sceneAt(t);
+  ({open: sOpen, trade: sTrade, chart: sChart, contain: sContain, proof: sProof, end: sEnd})[s.name](s.local);
+  if (s.local < WIPE && f > 0) {
+    const y = ease(s.local / WIPE) * H;
+    ctx.fillStyle = PAGE; ctx.fillRect(0, y, W, H - y);
+    ctx.fillStyle = INK; ctx.fillRect(0, y - 3, W, 3);
+    for (let yy = y + 4; yy < Math.min(H, y + 40); yy += 4) { ctx.fillStyle = `rgba(11,11,11,${0.25 * (1 - (yy - y) / 40)})`; ctx.fillRect(0, yy, W, 1); }
+  }
+  return true;
+};
+
+// Sound cues, derived from the same constants the visuals use.
+window.soundEvents = function () {
+  const ev = [];
+  const T = {open: sceneStart('open'), trade: sceneStart('trade'), chart: sceneStart('chart'), contain: sceneStart('contain'), proof: sceneStart('proof'), end: sceneStart('end')};
+  for (const k of ['trade', 'chart', 'contain', 'proof', 'end']) ev.push({t: T[k], kind: 'wipe'});
+  // open: cat reveal hum, title keys, line blips
+  ev.push({t: T.open, kind: 'sweep', dur: 1.5, f0: 120, f1: 520});
+  for (let i = 0; i < TITLE.length; i++) ev.push({t: T.open + TITLE_T0 + (i / TITLE.length) * TITLE_DT, kind: 'key'});
+  for (const at of [2.7, 3.1, 3.9]) ev.push({t: T.open + at, kind: 'blip', f: 880});
+  // trade: pointer, click, share ticks, sign thunk, confirm blip
+  ev.push({t: T.trade + TRADE_CLICK_YES, kind: 'click'});
+  for (let i = 1; i < 25; i++) ev.push({t: T.trade + TRADE_SHARES_T0 + (i / 24) * TRADE_SHARES_DT, kind: 'tick'});
+  ev.push({t: T.trade + TRADE_SIGN, kind: 'thunk'});
+  ev.push({t: T.trade + TRADE_DONE, kind: 'blip', f: 1320});
+  // chart: slot ticks during convergence, decision stamp, shutdown thunk
+  ev.push({t: T.chart + CHART_DECIDE, kind: 'stamp'});
+  for (let i = 1; i < CONV.length; i++) ev.push({t: T.chart + CHART_CONV_T0 + i / CHART_CONV_RATE, kind: 'tick', f: 600 + (i / CONV.length) * 600});
+  ev.push({t: T.chart + CHART_CONV_T0 + (CONV.length - 1) / CHART_CONV_RATE + 0.05, kind: 'thunk'});
+  // contain: descending sweep as backing drains, low thud at zero, headline stamp
+  ev.push({t: T.contain + CONTAIN_T0, kind: 'sweep', dur: CONTAIN_DT, f0: 440, f1: 90});
+  ev.push({t: T.contain + CONTAIN_T0 + CONTAIN_DT, kind: 'thud'});
+  ev.push({t: T.contain + CONTAIN_HEADLINE, kind: 'stamp'});
+  // proof: keys for each number
+  PROOF_LINES.forEach(([n], i) => { for (let k = 0; k < n.length; k++) ev.push({t: T.proof + 0.15 + i * 0.55 + (k / n.length) * 0.3, kind: 'key'}); });
+  // end: three soft blips
+  for (const at of [0, 0.8, 1.4]) ev.push({t: T.end + at, kind: 'blip', f: 660});
+  return ev.sort((a, b) => a.t - b.t);
+};
+
+window.isReady = () => catReady && document.fonts.status === 'loaded';
+document.fonts.load('700 100px Silkscreen'); document.fonts.load('500 30px "Geist Mono"');
+if (!location.search.includes('capture')) { let f = 0; setInterval(() => { renderFrame(f++ % window.TOTAL_FRAMES); }, 1000 / FPS); }
+</script>
+</body>
+</html>

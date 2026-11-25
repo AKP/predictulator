@@ -1,0 +1,28 @@
+{
+  "name": "@predictulator/sdk",
+  "version": "0.2.0",
+  "description": "TypeScript client for Predictulator: Percolator account layouts, instruction encoders, and the question lifecycle.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\""
+  },
+  "dependencies": {
+    "@noble/hashes": "^1.6.1",
+    "@solana/web3.js": "^1.98.0",
+    "tweetnacl": "^1.0.3",
+    "zod": "^3.24.1"
+  }
+}

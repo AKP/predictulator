@@ -1,0 +1,318 @@
+@import 'tailwindcss';
+
+/* Paper-grey page, near-black ink. Silkscreen bold for pixel headlines, Geist Mono for everything else. */
+:root {
+  --page: #f0f1ee;
+  --ink: #0b0b0b;
+  --mute: #6f726d;
+  --rule: #d9dbd5;
+  --well: #e6e8e2;
+  color-scheme: light;
+}
+
+@theme inline {
+  --color-page: var(--page);
+  --color-ink: var(--ink);
+  --color-mute: var(--mute);
+  --color-rule: var(--rule);
+  --color-well: var(--well);
+}
+
+@theme {
+  --font-pixel: 'Silkscreen', ui-monospace, monospace;
+  --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --text-hero: clamp(44px, 7.6vw, 128px);
+  --text-hero--line-height: 0.92;
+  --text-hero--letter-spacing: -0.02em;
+  --text-section: clamp(22px, 2.6vw, 40px);
+  --text-section--line-height: 1;
+  --text-section--letter-spacing: -0.01em;
+  --text-lede: clamp(14px, 1.22vw, 18px);
+  --text-lede--line-height: 1.42;
+  --text-lede--letter-spacing: -0.01em;
+  --text-body: clamp(13px, 1.02vw, 15px);
+  --text-body--line-height: 1.55;
+  --text-ui: clamp(12px, 0.95vw, 14px);
+  --text-ui--line-height: 1;
+  --text-ui--letter-spacing: -0.01em;
+  --text-tiny: 11px;
+  --text-tiny--line-height: 1.3;
+  --text-tiny--letter-spacing: 0.02em;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+html {
+  background: var(--page);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  scroll-behavior: smooth;
+}
+body {
+  margin: 0;
+  overflow-x: hidden;
+  font-family: var(--font-mono);
+  background: var(--page);
+}
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+/* Pixel fonts must never be smoothed into grey edges. */
+.pixel {
+  font-family: var(--font-pixel);
+  font-weight: 700;
+  -webkit-font-smoothing: none;
+  font-smooth: never;
+  text-transform: uppercase;
+}
+
+/* Scanline stage meets the page softly on the side facing the copy. */
+.scan-fade {
+  mask-image: linear-gradient(to right, transparent 0, #000 9%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 9%);
+}
+@media (max-width: 767px) {
+  .scan-fade {
+    mask-image: linear-gradient(to bottom, transparent 0, #000 8%);
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 8%);
+  }
+}
+
+.rise {
+  animation: rise 0.9s cubic-bezier(0.2, 0.7, 0.1, 1) both;
+}
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rise {
+    animation: none;
+  }
+}
+
+/* Hairline boxes with notched pixel corners, drawn with one background trick. */
+.box {
+  position: relative;
+  border: 1px solid var(--ink);
+  background: var(--page);
+}
+.box::before,
+.box::after {
+  content: '';
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  background: var(--page);
+}
+.box::before {
+  top: -1px;
+  left: -1px;
+  border-right: 1px solid var(--ink);
+  border-bottom: 1px solid var(--ink);
+}
+.box::after {
+  bottom: -1px;
+  right: -1px;
+  border-left: 1px solid var(--ink);
+  border-top: 1px solid var(--ink);
+}
+
+.rule {
+  border-top: 1px solid var(--ink);
+}
+.hair {
+  border-top: 1px solid var(--rule);
+}
+
+/* Code */
+.code {
+  font-family: var(--font-mono);
+  font-size: clamp(11.5px, 0.86vw, 13px);
+  line-height: 1.55;
+  tab-size: 2;
+  white-space: pre;
+  overflow-x: auto;
+}
+.tk-kw {
+  color: var(--ink);
+  font-weight: 500;
+}
+.tk-str {
+  color: #3d3f3b;
+}
+.tk-cm {
+  color: var(--mute);
+}
+.tk-num {
+  color: var(--ink);
+}
+.tk-fn {
+  color: var(--ink);
+}
+.tk-pn {
+  color: var(--mute);
+}
+
+/* Tables */
+.tbl {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-body);
+}
+.tbl th {
+  text-align: left;
+  font-weight: 500;
+  padding: 8px 10px 8px 0;
+  border-bottom: 1px solid var(--ink);
+  white-space: nowrap;
+}
+.tbl td {
+  vertical-align: top;
+  padding: 8px 10px 8px 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+/* Mockup widgets */
+.seg {
+  display: flex;
+  border: 1px solid var(--ink);
+  margin: 10px 0;
+}
+.seg button {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  padding: 7px 0;
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--text-ui);
+}
+.seg button.on {
+  background: var(--ink);
+  color: var(--page);
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 10px 0;
+  font-size: var(--text-tiny);
+  color: var(--mute);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+.field input,
+.field textarea {
+  font: inherit;
+  font-family: var(--font-mono);
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--ink);
+  outline: none;
+}
+.field input:focus,
+.field textarea:focus {
+  border-color: var(--ink);
+}
+.kv {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 14px;
+  margin: 8px 0;
+}
+.kv dt {
+  color: var(--mute);
+}
+.kv dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.kv.compact {
+  font-size: var(--text-tiny);
+}
+.pill {
+  display: inline-block;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 2px 6px;
+  border: 1px solid var(--rule);
+  color: var(--mute);
+}
+.pill.open,
+.pill.yes {
+  color: var(--ink);
+  border-color: var(--ink);
+}
+.pill.no {
+  color: var(--ink);
+  border-color: var(--ink);
+  background: var(--well);
+}
+.pos {
+  color: var(--ink);
+}
+.neg {
+  color: var(--mute);
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 3px;
+}
+
+/* Form controls in theme */
+input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 1px;
+  background: var(--ink);
+  outline: none;
+}
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  background: var(--ink);
+  border: 0;
+  cursor: pointer;
+}
+input[type='range']::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  background: var(--ink);
+  border: 0;
+  border-radius: 0;
+  cursor: pointer;
+}
+
+/* Severity pills on the security page. Monochrome, weighted by seriousness. */
+.pill.sev-high {
+  color: var(--page);
+  background: var(--ink);
+  border-color: var(--ink);
+}
+.pill.sev-med {
+  color: var(--ink);
+  border-color: var(--ink);
+}
+.pill.sev-low {
+  color: var(--mute);
+  border-color: var(--rule);
+}
+.pill.sev-info {
+  color: var(--mute);
+  border-color: var(--rule);
+  border-style: dashed;
+}

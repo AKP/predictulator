@@ -1,0 +1,21 @@
+{
+  "name": "@predictulator/resolver",
+  "version": "0.2.0",
+  "description": "Predictulator resolver service: pushes probability marks, resolves questions, and drives the shutdown and force-close lifecycle.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "predictulator-resolver": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node ./dist/cli.js"
+  },
+  "dependencies": {
+    "@predictulator/sdk": "0.2.0",
+    "@solana/web3.js": "^1.98.0",
+    "zod": "^3.24.1"
+  }
+}

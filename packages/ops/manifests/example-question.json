@@ -1,0 +1,9 @@
+{
+  "title": "Will SOL close above $300 on 2026-12-31?",
+  "description": "Daily close of the SOL/USD pair on Coinbase, UTC.",
+  "resolutionCriteria": "YES if the SOL/USD daily close on Coinbase for 2026-12-31 (00:00 UTC bar) is strictly greater than 300.00 USD. NO otherwise. If Coinbase does not publish a close, the resolver uses the CoinGecko daily close for the same date.",
+  "resolutionSource": "https://www.coinbase.com/price/solana",
+  "closesAt": "2026-12-31T00:00:00.000Z",
+  "resolvesBy": "2027-01-02T00:00:00.000Z",
+  "tags": ["crypto", "sol"]
+}
