@@ -7,7 +7,7 @@
 <p align="center"><b>Prediction markets on Solana where a wrong resolution can only hurt the people who bet on that question.</b></p>
 
 <p align="center">
-  <a href="https://predictulator.vercel.app">site</a> ·
+  <a href="https://gpux.si">site</a> ·
   <a href="docs/DESIGN.md">design</a> ·
   <a href="docs/OPERATIONS.md">runbook</a> ·
   <a href="docs/ROADMAP.md">roadmap</a> ·
@@ -844,7 +844,7 @@ npm run ops -- create-question --creator keys/admin.json \
 
 # pages
 npm run dev:web    # trading page
-npm run dev:site   # marketing site, deployed at https://predictulator.vercel.app
+npm run dev:site   # marketing site, deployed at https://gpux.si
 ```
 
 <p align="center">
